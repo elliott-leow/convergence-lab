@@ -73,7 +73,9 @@ def load_traces(traces_dir: str) -> list[dict]:
             trace = json.load(fh)
             # Verify hidden states exist
             sample = trace["rounds"][0]["turns"][0]
-            if "hidden_state" not in sample or sample["hidden_state"] is None:
+            # Support both formats: "hidden_state" or nested "hidden_states.final_layer_mean"
+            hs = sample.get("hidden_state") or (sample.get("hidden_states", {}) or {}).get("final_layer_mean")
+            if hs is None:
                 print(f"  SKIP {f.name}: no hidden_state data")
                 continue
             traces.append(trace)
@@ -92,7 +94,8 @@ def extract_agent_data(trace: dict) -> dict:
             aid = turn["agent_id"]
             if aid not in agents:
                 agents[aid] = {"hidden": [], "embedding": []}
-            agents[aid]["hidden"].append(np.array(turn["hidden_state"]))
+            hs = turn.get("hidden_state") or (turn.get("hidden_states", {}) or {}).get("final_layer_mean")
+            agents[aid]["hidden"].append(np.array(hs))
             if turn.get("embedding"):
                 agents[aid]["embedding"].append(np.array(turn["embedding"]))
     return agents
